@@ -1,0 +1,14 @@
+[Unit]
+Description=Drone FSM Lights
+After=multi-user.target
+
+[Service]
+Type=simple
+User=danielyang
+WorkingDirectory=/home/danielyang/Drone
+ExecStart=/home/danielyang/Drone/venv/bin/python /home/danielyang/Drone/drone_fsm_lights.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
