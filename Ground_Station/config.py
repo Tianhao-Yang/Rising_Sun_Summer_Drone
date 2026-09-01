@@ -1,0 +1,46 @@
+from pathlib import Path
+
+############USB Camera Settings
+CAMERA_INDEX = 1 #USB Camera index
+WINDOW_NAME = "HUD Window"
+CAMERA_RECONNECT_INTERVAL = 2.0 
+
+
+############ MAVLink Telemetry Settings
+TELEMETRY_PORT = "COM8"
+TELEMETRY_BAUD = 57600
+TELEMETRY_RECONNECT_INTERVAL = 3.0
+HEARTBEAT_TIMEOUT = 6.0 #Three seconds to check for heartbeat
+RC_SIGNAL_TIMEOUT = 2.0
+MESSAGE_REQUEST_RETRY_INTERVAL = 15.0
+############Motor Settings
+MOTOR_OUTPUT_CHANNELS = (9, 10, 11, 12) #Motor1-> channel 9, Motor2->channel 10, Motor3-> channel 11, Motor4-> Channel 12
+OUTPUT_MIN = 1000
+OUTPUT_MAX = 2000
+
+############# Logging settings
+LOG_SAMPLE_INTERVAL = 0.1
+PROJECT_ROOT = Path(__file__).resolve().parent
+BASE_LOG_DIRECTORY = PROJECT_ROOT / "logs"
+
+############# HUD layout settings
+HUD_SAFE_MARGIN = 25
+COMPASS_DOWN_OFFSET = 10
+
+############# HUD alert thresholds
+TEL_WARNING_PERCENT = 40
+TEL_CRITICAL_PERCENT = 20
+RC_WARNING_PERCENT = 40
+RC_CRITICAL_PERCENT = 20
+
+BAT_VOLTAGE_WARNING = 14.0
+BAT_VOLTAGE_CRITICAL = 13.2
+
+CURRENT_WARNING_A = 60.0
+CURRENT_CRITICAL_A = 90.0
+
+GPS_MIN_FIX_TYPE = 3
+GPS_MIN_SATELLITES_EXCLUSIVE = 3
+GPS_MAX_HDOP = 2.0
+
+WARNING_BLINK_PERIOD_S = 1.0

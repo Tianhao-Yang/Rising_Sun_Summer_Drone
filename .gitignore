@@ -218,3 +218,5 @@ __marimo__/
 .streamlit/secrets.toml
 # Large offline map data
 app/map/maps/*.pmtiles
+# Large offline map files
+*.pmtiles
