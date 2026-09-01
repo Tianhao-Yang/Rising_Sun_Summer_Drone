@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+
+    <title>Offline Southern Ontario Map</title>
+
+
+    <!-- =========================
+         Local MapLibre CSS
+         ========================= -->
+
+    <link
+        rel="stylesheet"
+        href="./maplibre/maplibre-gl.css"
+    >
+
+
+    <style>
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+
+            width: 100%;
+            height: 100%;
+
+            overflow: hidden;
+        }
+
+
+        #map {
+            position: absolute;
+
+            top: 0;
+            left: 0;
+
+            width: 100%;
+            height: 100%;
+        }
+
+
+        /* =========================
+           GPS NOT FIX
+           ========================= */
+
+        #gps-warning {
+            position: absolute;
+
+            left: 50%;
+            top: 50%;
+
+            transform: translate(
+                -50%,
+                -50%
+            );
+
+            z-index: 1000;
+
+            color: red;
+
+            font-family: Arial, sans-serif;
+
+            font-size: 26px;
+            font-weight: normal;
+
+            pointer-events: none;
+
+            display: block;
+        }
+
+
+        /* =========================
+           Aircraft marker
+           ========================= */
+
+        .aircraft-marker {
+            position: relative;
+
+            width: 42px;
+            height: 54px;
+
+            pointer-events: none;
+        }
+
+
+        /* =========================
+   Aircraft marker
+   ========================= */
+
+.aircraft-marker {
+    position: relative;
+
+    width: 52px;
+    height: 52px;
+
+    pointer-events: none;
+}
+
+
+/* =========================
+   Aircraft triangle
+   ========================= */
+
+.aircraft-triangle {
+    position: absolute;
+
+    left: 50%;
+    top: 11px;
+
+    transform: translateX(-50%);
+
+    width: 0;
+    height: 0;
+
+    /* Triangle width */
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+
+    /* Triangle length */
+    border-bottom: 30px solid #E00000;
+}
+
+
+/* =========================
+   Aircraft X - line 1
+   ========================= */
+
+.aircraft-x-1 {
+    position: absolute;
+
+    left: 2px;
+    top: 25px;
+
+    width: 48px;
+    height: 2px;
+
+    background-color: #E00000;
+
+    transform: rotate(45deg);
+
+    transform-origin: center;
+}
+
+
+/* =========================
+   Aircraft X - line 2
+   ========================= */
+
+.aircraft-x-2 {
+    position: absolute;
+
+    left: 2px;
+    top: 25px;
+
+    width: 48px;
+    height: 2px;
+
+    background-color: #E00000;
+
+    transform: rotate(-45deg);
+
+    transform-origin: center;
+}
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- =========================
+         Map
+         ========================= -->
+
+    <div id="map"></div>
+
+
+    <!-- =========================
+         GPS warning
+         ========================= -->
+
+    <div id="gps-warning">
+        GPS NOT FIX
+    </div>
+
+
+    <!-- =========================
+         PMTiles
+         ========================= -->
+
+    <script
+        src="./pmtiles/pmtiles.js">
+    </script>
+
+
+    <!-- =========================
+         Protomaps Basemap
+         ========================= -->
+
+    <script
+        src="./basemap/basemaps.js">
+    </script>
+
+
+    <!-- =========================
+         MapLibre
+         ========================= -->
+
+    <script type="module">
+
+        import * as maplibregl
+            from "./maplibre/maplibre-gl.mjs";
+
+
+        // ========================================
+        // PMTiles protocol
+        // ========================================
+
+        const protocol =
+            new pmtiles.Protocol();
+
+
+        maplibregl.addProtocol(
+            "pmtiles",
+            protocol.tile
+        );
+
+
+        // ========================================
+        // Create map
+        // ========================================
+
+        const map =
+            new maplibregl.Map({
+
+                container: "map",
+
+
+                // Toronto starting view
+                center: [
+                    -79.3832,
+                    43.6532
+                ],
+
+
+                zoom: 9,
+
+                minZoom: 6,
+
+                maxZoom: 19,
+
+
+                style: {
+
+                    version: 8,
+
+
+                    // =============================
+                    // Local fonts
+                    // =============================
+
+                    glyphs:
+                        "http://127.0.0.1:8765/fonts/{fontstack}/{range}.pbf",
+
+
+                    // =============================
+                    // Offline map
+                    // =============================
+
+                    sources: {
+
+                        protomaps: {
+
+                            type: "vector",
+
+                            url:
+                                "pmtiles://http://127.0.0.1:8765/maps/southern_ontario.pmtiles",
+
+                            attribution:
+                                "© OpenStreetMap contributors",
+
+                            maxzoom: 15
+                        }
+                    },
+
+
+                    // =============================
+                    // Protomaps layers
+                    // =============================
+
+                    layers:
+                        basemaps.layers(
+
+                            "protomaps",
+
+                            basemaps.namedFlavor(
+                                "light"
+                            ),
+
+                            {
+                                lang: "en"
+                            }
+
+                        )
+                }
+            });
+
+
+        // ========================================
+        // Navigation controls
+        // ========================================
+
+        map.addControl(
+
+            new maplibregl.NavigationControl(),
+
+            "top-left"
+
+        );
+
+
+        // ========================================
+        // Aircraft state
+        // ========================================
+
+        let aircraftMarker = null;
+
+        let aircraftElement = null;
+
+        let gpsValid = false;
+
+        let armed = false;
+
+
+        // ========================================
+        // Home position
+        // ========================================
+
+
+        // ========================================
+        // Flight track
+        // ========================================
+
+        let flightTrackCoordinates = [];
+
+
+        // ========================================
+        // Create aircraft symbol
+        // ========================================
+
+        function createAircraftElement() {
+
+            const marker =
+                document.createElement(
+                    "div"
+                );
+
+
+            marker.className =
+                "aircraft-marker";
+
+
+            // Triangle
+            const triangle =
+                document.createElement(
+                    "div"
+                );
+
+            triangle.className =
+                "aircraft-triangle";
+
+
+            // X line 1
+            const x1 =
+                document.createElement(
+                    "div"
+                );
+
+            x1.className =
+                "aircraft-x-1";
+
+
+            // X line 2
+            const x2 =
+                document.createElement(
+                    "div"
+                );
+
+            x2.className =
+                "aircraft-x-2";
+
+
+            marker.appendChild(
+                triangle
+            );
+
+            marker.appendChild(
+                x1
+            );
+
+            marker.appendChild(
+                x2
+            );
+
+
+            return marker;
+        }
+
+
+        // ========================================
+        // GPS state
+        // ========================================
+
+        window.setGpsValid =
+            function(valid) {
+
+                gpsValid =
+                    Boolean(valid);
+
+
+                const warning =
+                    document.getElementById(
+                        "gps-warning"
+                    );
+
+
+                // =============================
+                // GPS FIX
+                // =============================
+
+                if (gpsValid) {
+
+                    warning.style.display =
+                        "none";
+
+                    return;
+                }
+
+
+                // =============================
+                // GPS NOT FIX
+                // =============================
+
+                warning.style.display =
+                    "block";
+
+
+                // GPS position is no longer
+                // trustworthy, so hide marker.
+                if (aircraftMarker) {
+
+                    aircraftMarker.remove();
+
+                    aircraftMarker = null;
+
+                    aircraftElement = null;
+                }
+
+            };
+
+
+        // ========================================
+        // ARM state
+        // ========================================
+
+        window.setArmed =
+            function(value) {
+
+                armed =
+                    Boolean(value);
+
+            };
+
+
+        // ========================================
+        // Home / pilot position
+        // ========================================
+
+
+
+        // ========================================
+        // Update aircraft
+        //
+        // recordTrack:
+        //
+        // false = only move aircraft
+        // true  = move aircraft + record track
+        // ========================================
+
+        window.updateAircraft =
+            function(
+                lat,
+                lon,
+                heading,
+                recordTrack
+            ) {
+
+                if (!gpsValid) {
+
+                    return;
+
+                }
+
+
+                const latitude =
+                    Number(lat);
+
+                const longitude =
+                    Number(lon);
+
+                const headingDegrees =
+                    Number(heading);
+
+
+                if (
+                    !Number.isFinite(latitude)
+                    ||
+                    !Number.isFinite(longitude)
+                ) {
+
+                    return;
+
+                }
+
+
+                // =============================
+                // Create aircraft marker
+                // =============================
+
+                if (!aircraftMarker) {
+
+                    aircraftElement =
+                        createAircraftElement();
+
+
+                    aircraftMarker =
+                        new maplibregl.Marker({
+
+                            element:
+                                aircraftElement,
+
+                            anchor:
+                                "center",
+
+                            rotationAlignment:
+                                "map",
+
+                            pitchAlignment:
+                                "map"
+
+                        });
+
+
+                    aircraftMarker
+                        .setLngLat(
+                            [
+                                longitude,
+                                latitude
+                            ]
+                        )
+                        .addTo(
+                            map
+                        );
+
+                }
+
+
+                // =============================
+                // Update aircraft position
+                //
+                // IMPORTANT:
+                // Let MapLibre control the
+                // marker DOM transform.
+                // =============================
+
+                aircraftMarker.setLngLat(
+                    [
+                        longitude,
+                        latitude
+                    ]
+                );
+
+
+                // =============================
+                // Rotate aircraft
+                //
+                // Do NOT directly modify
+                // aircraftElement.style.transform.
+                //
+                // MapLibre uses transform for
+                // marker screen positioning.
+                // =============================
+
+                if (
+                    Number.isFinite(
+                        headingDegrees
+                    )
+                ) {
+
+                    aircraftMarker.setRotation(
+                        headingDegrees
+                    );
+
+                }
+
+
+                // =============================
+                // Force MapLibre repaint
+                // =============================
+
+                map.triggerRepaint();
+
+
+                // =============================
+                // Record track?
+                // =============================
+
+                if (!Boolean(recordTrack)) {
+
+                    return;
+
+                }
+
+
+                // =============================
+                // Add point
+                // =============================
+
+                flightTrackCoordinates.push(
+                    [
+                        longitude,
+                        latitude
+                    ]
+                );
+
+
+                updateFlightTrack();
+
+            };
+
+
+        // ========================================
+        // Update flight track
+        // ========================================
+
+        function updateFlightTrack() {
+
+            const source =
+                map.getSource(
+                    "flight-track"
+                );
+
+
+            if (!source) {
+
+                return;
+
+            }
+
+
+            source.setData({
+
+                type:
+                    "Feature",
+
+                geometry: {
+
+                    type:
+                        "LineString",
+
+                    coordinates:
+                        flightTrackCoordinates
+
+                }
+
+            });
+
+
+            // Make sure the new track
+            // appears immediately.
+            map.triggerRepaint();
+
+        }
+
+
+        // ========================================
+        // Clear flight track
+        // ========================================
+
+        window.clearFlightTrack =
+            function() {
+
+                flightTrackCoordinates = [];
+
+
+                updateFlightTrack();
+
+            };
+
+
+        // ========================================
+        // Map loaded
+        // ========================================
+
+        map.on(
+            "load",
+            () => {
+
+
+                // =============================
+                // Flight track source
+                // =============================
+
+                map.addSource(
+                    "flight-track",
+                    {
+
+                        type:
+                            "geojson",
+
+                        data: {
+
+                            type:
+                                "Feature",
+
+                            geometry: {
+
+                                type:
+                                    "LineString",
+
+                                coordinates: []
+
+                            }
+
+                        }
+
+                    }
+                );
+
+
+                // =============================
+                // Flight track layer
+                // =============================
+
+                map.addLayer(
+                    {
+
+                        id:
+                            "flight-track-line",
+
+                        type:
+                            "line",
+
+                        source:
+                            "flight-track",
+
+                        layout: {
+
+                            "line-join":
+                                "round",
+
+                            "line-cap":
+                                "round"
+
+                        },
+
+                        paint: {
+
+                            // Dark gray
+                            "line-color":
+                                "#4A4A4A",
+
+                            "line-width":
+                                3
+
+                        }
+
+                    }
+                );
+
+
+                console.log(
+                    "Offline map loaded."
+                );
+
+            }
+        );
+
+
+        // ========================================
+        // Debug errors
+        // ========================================
+
+        map.on(
+            "error",
+            event => {
+
+                console.error(
+                    "Map error:",
+                    event.error
+                );
+
+            }
+        );
+
+
+        // ========================================
+        // Initial state
+        // ========================================
+
+        window.setGpsValid(
+            false
+        );
+
+
+        window.setArmed(
+            false
+        );
+
+
+    </script>
+
+
+</body>
+
+</html>
