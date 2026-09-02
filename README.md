@@ -33,6 +33,7 @@ The Flask-based website is the public version of the desktop application. It inc
 - Live video views when the desktop application is online
 
 The website is aiming to demonstrates the project and shares flight experiences with the public.
+Website: https://red-sun-public-site.onrender.com/
 
 ## 2. CAD Files
 
