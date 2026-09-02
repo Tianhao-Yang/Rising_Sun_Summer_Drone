@@ -1,3 +1,5 @@
+
+
 """Red Sun public website server.
 
 In production, set REDSUN_R2_PUBLIC_URL and public assets/logs are read from
@@ -296,17 +298,32 @@ def csv_data(name):
             )
         except (HTTPError, URLError, TimeoutError):
             abort(502)
-        text = content.decode("utf-8-sig", errors="replace")
+        # A recording interrupted before a clean close can leave NUL padding at
+        # the end of an otherwise valid CSV.  Remove it before DictReader sees
+        # the padding as a bogus final row.
+        text = content.decode("utf-8-sig", errors="replace").rstrip("\x00")
         reader = csv.DictReader(text.splitlines())
         csv_name = Path(relative).name
         headers = reader.fieldnames or []
-        rows = list(reader)
+        rows = [
+            row for row in reader
+            if any(
+                value is not None and str(value).replace("\x00", "").strip()
+                for value in row.values()
+            )
+        ]
         return jsonify(name=csv_name, headers=headers, rows=rows)
     csv_path = csv_source
     with csv_path.open("r", encoding="utf-8-sig", newline="", errors="replace") as handle:
         reader = csv.DictReader(handle)
         headers = reader.fieldnames or []
-        rows = list(reader)
+        rows = [
+            row for row in reader
+            if any(
+                value is not None and str(value).replace("\x00", "").strip()
+                for value in row.values()
+            )
+        ]
     return jsonify(name=csv_path.name, headers=headers, rows=rows)
 
 
